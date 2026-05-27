@@ -42,6 +42,7 @@ api = [
     "rq>=1.16",
     "pydantic>=2.6",
     "httpx>=0.27",
+    "python-multipart>=0.0.9",
 ]
 dev = [
     "ruff>=0.4",
