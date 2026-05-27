@@ -69,6 +69,61 @@ export async function createJob(
   );
 }
 
+/**
+ * Upload an audio file as multipart/form-data to `POST /transcribe/upload`.
+ *
+ * The browser sets the `Content-Type` header (including the multipart boundary)
+ * automatically — we must NOT set it manually here.
+ */
+export async function createJobMultipart(
+  audioFile: File,
+  signal?: AbortSignal,
+): Promise<TranscribeResponse> {
+  const form = new FormData();
+  form.append('audio_file', audioFile, audioFile.name);
+  const url = `${resolveBaseUrl()}/transcribe/upload`;
+  const res = await fetch(url, {
+    method: 'POST',
+    body: form,
+    signal,
+    headers: { Accept: 'application/json' },
+  });
+  if (!res.ok) {
+    const body = await parseErrorBody(res);
+    throw new ApiError(
+      res.status,
+      `Request failed: ${res.status} ${res.statusText}`,
+      body,
+    );
+  }
+  return (await res.json()) as TranscribeResponse;
+}
+
+/**
+ * Dispatch a transcription request to the right endpoint:
+ *  - file present → multipart upload (`POST /transcribe/upload`)
+ *  - url present  → JSON body (`POST /transcribe`)
+ *
+ * Exactly one of `file` / `url` must be provided.
+ */
+export async function submitTranscribe(
+  input: { file?: File | null; url?: string | null },
+  signal?: AbortSignal,
+): Promise<TranscribeResponse> {
+  const hasFile = !!input.file;
+  const hasUrl = typeof input.url === 'string' && input.url.trim().length > 0;
+  if (hasFile && hasUrl) {
+    throw new Error('submitTranscribe: provide either file or url, not both.');
+  }
+  if (hasFile) {
+    return createJobMultipart(input.file as File, signal);
+  }
+  if (hasUrl) {
+    return createJob({ audio_url: (input.url as string).trim() }, signal);
+  }
+  throw new Error('submitTranscribe: provide a file or a url.');
+}
+
 export async function getJob(jobId: string, signal?: AbortSignal): Promise<JobStatus> {
   return request<JobStatus>(`/jobs/${encodeURIComponent(jobId)}`, { method: 'GET' }, signal);
 }

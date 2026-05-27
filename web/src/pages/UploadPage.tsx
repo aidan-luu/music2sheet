@@ -1,20 +1,8 @@
 import { useState, type FormEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ApiError, createJob } from '../api/client';
-import type { TranscribeRequest } from '../api/types';
+import { ApiError, submitTranscribe } from '../api/client';
 
 type Mode = 'file' | 'url';
-
-async function fileToBase64(file: File): Promise<string> {
-  const buf = await file.arrayBuffer();
-  const bytes = new Uint8Array(buf);
-  let binary = '';
-  const chunk = 0x8000;
-  for (let i = 0; i < bytes.length; i += chunk) {
-    binary += String.fromCharCode(...bytes.subarray(i, i + chunk));
-  }
-  return btoa(binary);
-}
 
 function formatError(err: unknown): string {
   if (err instanceof ApiError) {
@@ -45,15 +33,14 @@ export function UploadPage(): JSX.Element {
     setError(null);
     setSubmitting(true);
     try {
-      let req: TranscribeRequest;
+      let res;
       if (mode === 'file') {
         if (!file) throw new Error('Please choose an audio file.');
-        req = { audio_file_b64: await fileToBase64(file) };
+        res = await submitTranscribe({ file });
       } else {
         if (!url.trim()) throw new Error('Please enter a URL.');
-        req = { audio_url: url.trim() };
+        res = await submitTranscribe({ url });
       }
-      const res = await createJob(req);
       navigate(`/jobs/${res.job_id}`);
     } catch (err) {
       setError(formatError(err));

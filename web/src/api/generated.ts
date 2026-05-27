@@ -38,6 +38,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/jobs/{job_id}/results/{kind}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get Job Result */
+        get: operations["get_job_result_jobs__job_id__results__kind__get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/transcribe": {
         parameters: {
             query?: never;
@@ -47,8 +64,32 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** Create Transcription Job */
+        /**
+         * Create Transcription Job
+         * @deprecated
+         * @description Deprecated: prefer POST /transcribe/upload (multipart/form-data) for file uploads. This JSON endpoint requires base64-encoding the audio payload, which is bandwidth-wasteful and forces the browser through a chunked btoa workaround for files >~5MB. Kept indefinitely for back-compat with existing clients.
+         */
         post: operations["create_transcription_job_transcribe_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/transcribe/upload": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Create Transcription Job Upload
+         * @description Create a transcription job from a multipart/form-data upload. Provide exactly one of `audio_file` (binary MP3/WAV) or `audio_url` (remote fetch). Returns the same TranscribeResponse shape as the JSON endpoint.
+         */
+        post: operations["create_transcription_job_upload_transcribe_upload_post"];
         delete?: never;
         options?: never;
         head?: never;
@@ -59,6 +100,19 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        /** Body_create_transcription_job_upload_transcribe_upload_post */
+        Body_create_transcription_job_upload_transcribe_upload_post: {
+            /**
+             * Audio File
+             * @description Binary audio payload (MP3 or WAV). Mutually exclusive with audio_url.
+             */
+            audio_file?: string | null;
+            /**
+             * Audio Url
+             * @description HTTP(S) URL the backend will fetch the audio from.
+             */
+            audio_url?: string | null;
+        };
         /** HTTPValidationError */
         HTTPValidationError: {
             /** Detail */
@@ -209,6 +263,38 @@ export interface operations {
             };
         };
     };
+    get_job_result_jobs__job_id__results__kind__get: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                job_id: string;
+                kind: "musicxml" | "midi" | "pdf";
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": unknown;
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
     create_transcription_job_transcribe_post: {
         parameters: {
             query?: never;
@@ -219,6 +305,39 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": components["schemas"]["TranscribeRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TranscribeResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    create_transcription_job_upload_transcribe_upload_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "multipart/form-data": components["schemas"]["Body_create_transcription_job_upload_transcribe_upload_post"];
             };
         };
         responses: {
