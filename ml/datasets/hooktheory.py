@@ -2,9 +2,11 @@
 
 License
 -------
-HookTheory's TheoryTab database is distributed under HookTheory's own terms
-of use; data is community-contributed. Users must obtain a copy via the
-official API/scrape pipeline and accept their TOS. We do NOT redistribute.
+HookTheory's TheoryTab database is distributed under CC BY-NC-SA 3.0. Data is
+community-contributed; users must respect the upstream TOS. We do NOT
+redistribute raw HookTheory bytes — the fetch script at
+``ml.datasets.scripts.fetch_hooktheory`` downloads SheetSage's released
+JSON dump on demand and writes a normalised manifest.
 
 Citation
 --------
@@ -13,13 +15,16 @@ Donahue, C. et al. "Melody Transcription via Generative Pre-training," ISMIR
 
 Obtaining the data
 ------------------
-See ``scripts/data/download_hooktheory.py`` (lands in PR-3 alongside the MERT
-wrapper that consumes it). The script writes per-song JSON + audio links to
-``data/hooktheory/`` and never re-uploads raw HookTheory bytes.
+Run::
+
+    python -m ml.datasets.scripts.fetch_hooktheory --out ~/sheet-sage-data
+
+then construct ``HookTheoryDataset("~/sheet-sage-data/manifests/hooktheory.jsonl")``.
 """
 
 from __future__ import annotations
 
+import json
 from pathlib import Path
 from typing import Any
 
@@ -29,15 +34,37 @@ from ml.datasets.base import MusicDataset
 class HookTheoryDataset(MusicDataset):
     """HookTheory TheoryTab loader.
 
-    Yields chord + melody annotations aligned to beat positions; audio is
-    fetched lazily from YouTube links in the source JSON.
+    Reads a JSON Lines manifest produced by
+    ``ml.datasets.scripts.fetch_hooktheory`` and yields chord + melody
+    annotations. Audio is not loaded here; ``audio_path`` is included in the
+    returned dict for downstream code (``ml.audio_io``) to resolve.
     """
 
-    def __init__(self, root: Path, split: str = "train") -> None:
-        raise NotImplementedError("Implemented in PR-4 (melody decoder port).")
+    def __init__(self, manifest_path: str | Path, split: str = "train") -> None:
+        self.manifest_path = Path(manifest_path)
+        self.split = split
+        self._entries: list[dict[str, Any]] = _load_manifest(self.manifest_path, split)
 
     def __len__(self) -> int:
-        raise NotImplementedError("Implemented in PR-4 (melody decoder port).")
+        return len(self._entries)
 
     def __getitem__(self, index: int) -> dict[str, Any]:
-        raise NotImplementedError("Implemented in PR-4 (melody decoder port).")
+        return self._entries[index]
+
+
+def _load_manifest(manifest_path: Path, split: str) -> list[dict[str, Any]]:
+    if not manifest_path.exists():
+        raise FileNotFoundError(
+            f"HookTheory manifest not found at {manifest_path}. "
+            "Run `python -m ml.datasets.scripts.fetch_hooktheory --out <dir>` first."
+        )
+    out: list[dict[str, Any]] = []
+    with manifest_path.open("r", encoding="utf-8") as fh:
+        for line in fh:
+            line = line.strip()
+            if not line:
+                continue
+            entry = json.loads(line)
+            if entry.get("split") == split:
+                out.append(entry)
+    return out
