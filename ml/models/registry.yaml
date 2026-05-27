@@ -1,0 +1,27 @@
+# Model registry.
+#
+# Each entry under `models:` follows the schema:
+#
+#   <name>:
+#     hf_repo: <huggingface repo id>      # OR
+#     url: <direct download URL>
+#     sha256: <hex digest of the artifact>
+#     params_M: <param count in millions>
+#     license: <SPDX identifier>
+#     downstream_eval:                     # metric: value pairs
+#       <metric>: <value>
+#
+# Exactly one of `hf_repo` / `url` must be present per entry. `sha256` is
+# mandatory for reproducibility; CI refuses to load a registry entry whose
+# downloaded bytes hash to a different value.
+#
+# Entries land alongside their owning PRs:
+#   * PR-1  -> htdemucs_v4
+#   * PR-2  -> beat_transformer
+#   * PR-3  -> mert_v1_330m
+#   * PR-5  -> melody_head_v1
+#   * PR-7  -> chord_head_v1
+#   * PR-8  -> key_head_v1
+#   * PR-9  -> voicing_v1
+
+models: {}
