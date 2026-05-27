@@ -4,13 +4,18 @@ under tests/ per the documented exception in skills.md).
 
 from __future__ import annotations
 
+import asyncio
+import base64
+from pathlib import Path
 from uuid import UUID
 
 import httpx
 import pytest
 from httpx import ASGITransport
 
+from api import main as api_main
 from api.main import app
+from api.storage import JobBlobStore
 
 
 @pytest.fixture
@@ -20,13 +25,34 @@ async def client() -> httpx.AsyncClient:
         yield ac
 
 
+@pytest.fixture
+def isolated_blobs(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> Path:
+    """Point the app's blob store at a tmp dir and shorten worker sleeps.
+
+    Resets in-memory job state between tests so polling assertions stay
+    deterministic.
+    """
+    monkeypatch.setenv("MUSIC2SHEET_BLOB_DIR", str(tmp_path))
+    monkeypatch.setenv("MUSIC2SHEET_WORKER_DELAY_S", "0.05")
+    api_main._BLOB_STORE = JobBlobStore(tmp_path)
+    api_main._JOBS.clear()
+    return tmp_path
+
+
+_WAV_HEADER_B64 = "UklGRiQAAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQAAAAA="
+
+
 async def test_healthz(client: httpx.AsyncClient) -> None:
     r = await client.get("/healthz")
     assert r.status_code == 200
     assert r.json() == {"status": "ok"}
 
 
-async def test_create_job_returns_uuid(client: httpx.AsyncClient) -> None:
+async def test_create_job_returns_uuid(
+    client: httpx.AsyncClient, isolated_blobs: Path
+) -> None:
     r = await client.post(
         "/transcribe",
         json={"audio_url": "https://example.com/song.mp3"},
@@ -44,7 +70,9 @@ async def test_get_unknown_job_404(client: httpx.AsyncClient) -> None:
     assert r.status_code == 404
 
 
-async def test_create_then_get_job(client: httpx.AsyncClient) -> None:
+async def test_create_then_get_job(
+    client: httpx.AsyncClient, isolated_blobs: Path
+) -> None:
     create = await client.post(
         "/transcribe",
         json={"audio_url": "https://example.com/song.mp3"},
@@ -56,10 +84,114 @@ async def test_create_then_get_job(client: httpx.AsyncClient) -> None:
     assert got.status_code == 200
     body = got.json()
     assert body["job_id"] == job_id
-    assert body["status"] == "pending"
-    assert body["progress"] == 0.0
+    # Worker is now active (PR-B1); status will be pending/running/done depending
+    # on how much of the event loop has run between POST and GET. The contract
+    # the existing test was checking is that the job exists and has the right
+    # shape — not that progress is frozen at 0.
+    assert body["status"] in ("pending", "running", "done")
+    assert 0.0 <= body["progress"] <= 1.0
 
 
 async def test_one_of_audio_required(client: httpx.AsyncClient) -> None:
     r = await client.post("/transcribe", json={})
+    assert r.status_code == 422
+
+
+async def test_upload_b64_wav_round_trip(
+    client: httpx.AsyncClient, isolated_blobs: Path
+) -> None:
+    r = await client.post(
+        "/transcribe",
+        json={"audio_file_b64": _WAV_HEADER_B64},
+    )
+    assert r.status_code == 201, r.text
+    job_id = r.json()["job_id"]
+    job_dir = isolated_blobs / job_id
+    assert job_dir.is_dir()
+    inputs = list(job_dir.glob("input.wav"))
+    assert len(inputs) == 1
+    written = inputs[0].read_bytes()
+    assert written == base64.b64decode(_WAV_HEADER_B64)
+
+
+async def test_invalid_audio_format_400(
+    client: httpx.AsyncClient, isolated_blobs: Path
+) -> None:
+    junk = base64.b64encode(b"not-real-audio-bytes-just-noise").decode("ascii")
+    r = await client.post("/transcribe", json={"audio_file_b64": junk})
+    assert r.status_code == 400, r.text
+
+
+async def test_job_progresses_to_done(
+    client: httpx.AsyncClient, isolated_blobs: Path
+) -> None:
+    create = await client.post(
+        "/transcribe", json={"audio_file_b64": _WAV_HEADER_B64}
+    )
+    assert create.status_code == 201
+    job_id = create.json()["job_id"]
+
+    saw_running = False
+    deadline = asyncio.get_event_loop().time() + 5.0
+    while asyncio.get_event_loop().time() < deadline:
+        got = await client.get(f"/jobs/{job_id}")
+        assert got.status_code == 200
+        body = got.json()
+        if body["status"] == "running":
+            saw_running = True
+        if body["status"] == "done":
+            assert body["progress"] == 1.0
+            assert body["result_urls"]["musicxml"] == f"/jobs/{job_id}/results/musicxml"
+            assert saw_running, "expected to observe running state before done"
+            return
+        await asyncio.sleep(0.02)
+    pytest.fail("job did not reach done within timeout")
+
+
+async def test_result_musicxml_served(
+    client: httpx.AsyncClient, isolated_blobs: Path
+) -> None:
+    create = await client.post(
+        "/transcribe", json={"audio_file_b64": _WAV_HEADER_B64}
+    )
+    job_id = create.json()["job_id"]
+
+    deadline = asyncio.get_event_loop().time() + 5.0
+    while asyncio.get_event_loop().time() < deadline:
+        got = await client.get(f"/jobs/{job_id}")
+        if got.json()["status"] == "done":
+            break
+        await asyncio.sleep(0.02)
+    else:
+        pytest.fail("job did not reach done within timeout")
+
+    r = await client.get(f"/jobs/{job_id}/results/musicxml")
+    assert r.status_code == 200
+    assert r.headers["content-type"].startswith("application/vnd.recordare.musicxml+xml")
+    body = r.text
+    assert body.lstrip().startswith("<?xml")
+    assert "<score-partwise" in body
+
+
+async def test_result_404_before_done(
+    client: httpx.AsyncClient, isolated_blobs: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # Slow the worker down so the result is reliably absent at request time.
+    monkeypatch.setenv("MUSIC2SHEET_WORKER_DELAY_S", "5")
+    create = await client.post(
+        "/transcribe", json={"audio_file_b64": _WAV_HEADER_B64}
+    )
+    job_id = create.json()["job_id"]
+    r = await client.get(f"/jobs/{job_id}/results/musicxml")
+    assert r.status_code == 404
+
+
+async def test_result_unknown_kind(
+    client: httpx.AsyncClient, isolated_blobs: Path
+) -> None:
+    create = await client.post(
+        "/transcribe", json={"audio_file_b64": _WAV_HEADER_B64}
+    )
+    job_id = create.json()["job_id"]
+    r = await client.get(f"/jobs/{job_id}/results/garbage")
     assert r.status_code == 422
