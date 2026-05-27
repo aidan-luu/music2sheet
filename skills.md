@@ -5,13 +5,35 @@ and exchanges with its peers. The Orchestrator consults this file before every
 dispatch. Agents read their own section before claiming a task.
 
 Common ground for all agents:
-- Each agent works in its own git worktree under `.orchestrator/worktrees/<agent>/`.
-- Every task starts on a feature branch named `<agent>/<pr-id>-<slug>` and lands on `main`
-  only after Agent D's QA pass.
-- Heartbeat + status writes go to `.orchestrator/state/<agent>.json` every step.
-  Status machine: `running | done | failed`. Three consecutive failures → halt.
-- Cross-agent requests flow as tickets under `.orchestrator/tickets/<id>.json`.
-  Don't reach into another agent's owned paths directly.
+- Each agent runs as a live `claude` CLI process in one tmux pane of session
+  `claude-dev` (launched via `.orchestrator/hooks/launch_agents.sh`).
+- Each agent works in its own git worktree at
+  `.orchestrator/worktrees/agent-<X>/` (created by the launch script).
+- Every task starts on a feature branch named `agent-<X>/<pr-id>-<slug>` and
+  lands on `main` only after Agent D's QA pass.
+- Heartbeat + status writes go to `.orchestrator/state/agent-<X>.json` every
+  ~minute (even when idle). Status machine: `running | done | failed`.
+  Three consecutive failures → watchdog halts the agent.
+- **Ticket workflow** (orchestrator → agent):
+  - Orchestrator drops a JSON ticket at
+    `.orchestrator/tickets/agent-<X>-<id>.json` with shape:
+    ```json
+    {
+      "id": "...",
+      "to": "agent-X",
+      "pr": "PR-N",
+      "title": "...",
+      "body": "...task description...",
+      "files_requested_to_modify": [...],
+      "status": "open",
+      "created_at": "<iso8601>"
+    }
+    ```
+  - Agent polls every 30s; on finding `status: "open"` for itself, renames the
+    file to `<id>.in-progress.json` and updates its state file.
+  - On completion: renames to `<id>.done.json` with `resolved_at` +
+    `resolved_commit` fields populated.
+  - Cross-agent requests use the same format with `to` set to the target agent.
 
 ---
 
