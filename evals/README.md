@@ -1,6 +1,6 @@
 # Evaluation suite
 
-This directory will host the offline evaluation harness for Sheet Sage 2.
+This directory will host the offline evaluation harness for music2sheet.
 
 ## Metrics (all via `mir_eval`)
 

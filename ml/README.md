@@ -1,4 +1,4 @@
-# `ml/` - Sheet Sage 2 ML package
+# `ml/` - music2sheet ML package
 
 End-to-end audio-to-lead-sheet pipeline, owned by Agent C.
 

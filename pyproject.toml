@@ -3,13 +3,13 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [project]
-name = "sheet-sage-2"
+name = "music2sheet"
 version = "0.0.1"
 description = "Audio-to-lead-sheet ML system: mp3/wav/URL -> two-stave score with voicings."
 readme = "README.md"
 license = { file = "LICENSE" }
 requires-python = ">=3.11,<3.13"
-authors = [{ name = "Sheet Sage 2 Contributors" }]
+authors = [{ name = "music2sheet Contributors" }]
 keywords = ["music", "transcription", "lead-sheet", "mir", "musicxml"]
 classifiers = [
     "Development Status :: 2 - Pre-Alpha",
@@ -53,8 +53,8 @@ dev = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/sheet-sage-2/sheet-sage-2"
-Issues = "https://github.com/sheet-sage-2/sheet-sage-2/issues"
+Homepage = "https://github.com/aidan-luu/music2sheet"
+Issues = "https://github.com/aidan-luu/music2sheet/issues"
 
 [tool.hatch.metadata]
 allow-direct-references = true

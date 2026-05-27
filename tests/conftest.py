@@ -1,4 +1,4 @@
-"""Shared pytest fixtures for the Sheet Sage 2 test suite.
+"""Shared pytest fixtures for the music2sheet test suite.
 
 Agent D owns this file. Other agents may request new fixtures by filing a
 ticket under .orchestrator/tickets/ rather than editing directly.

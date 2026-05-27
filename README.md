@@ -1,4 +1,4 @@
-# Sheet Sage 2
+# music2sheet
 
 A successor to SheetSage: turn an audio recording (mp3, wav, or URL) into a
 clean two-stave lead sheet with chord voicings, key, beat grid, and rendered

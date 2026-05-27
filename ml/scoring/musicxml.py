@@ -1,6 +1,6 @@
 """MusicXML score builder.
 
-MusicXML is the **canonical output format** of Sheet Sage 2. Every other
+MusicXML is the **canonical output format** of music2sheet. Every other
 score artifact (LilyPond PDF, MIDI) is derived from the MusicXML emitted
 here so that the frontend (Agent A, via OpenSheetMusicDisplay or Verovio)
 and the LilyPond/MIDI exporters share a single source of truth.

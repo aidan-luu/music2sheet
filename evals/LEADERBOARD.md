@@ -1,4 +1,4 @@
-# Sheet Sage 2 leaderboard
+# music2sheet leaderboard
 
 Updated automatically by the eval harness (PR-13). RWC-Pop rows are blind /
 held-out and only refresh on the nightly job.

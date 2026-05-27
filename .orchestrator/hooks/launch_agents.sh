@@ -127,11 +127,11 @@ prompt_for() {
   cat <<EOF
 You are Agent ${letter} — ${role} on a 4-agent team building an audio-to-lead-sheet ML system (a SheetSage successor). The orchestrator runs in a separate session.
 
-Your role spec is in /Users/nhan-tuanaidanluu/sheet-sage-2/skills.md — read your section first, then read .orchestrator/dependency_graph.yaml. Your owned paths and boundaries are non-negotiable.
+Your role spec is in /Users/nhan-tuanaidanluu/Downloads/music2sheet/skills.md — read your section first, then read .orchestrator/dependency_graph.yaml. Your owned paths and boundaries are non-negotiable.
 
 Workflow:
-1. Poll /Users/nhan-tuanaidanluu/sheet-sage-2/.orchestrator/tickets/ every 30 seconds for files matching agent-${letter}-*.json with status "open".
-2. When you find one, atomically claim it by renaming to .in-progress.json and updating your state file at /Users/nhan-tuanaidanluu/sheet-sage-2/.orchestrator/state/agent-${letter}.json.
+1. Poll /Users/nhan-tuanaidanluu/Downloads/music2sheet/.orchestrator/tickets/ every 30 seconds for files matching agent-${letter}-*.json with status "open".
+2. When you find one, atomically claim it by renaming to .in-progress.json and updating your state file at /Users/nhan-tuanaidanluu/Downloads/music2sheet/.orchestrator/state/agent-${letter}.json.
 3. Execute the task as described in the ticket body. Stay inside your owned paths.
 4. On success: mark the ticket .done.json, commit your work on a feature branch named agent-${letter}/<pr-id>-<slug>, tag it ready-for-qa-<pr-id>, update your state to status: "done".
 5. On failure: increment failure_count in state, write an incident under .orchestrator/incidents/, and resume polling. The watchdog escalates at failure_count >= 3.

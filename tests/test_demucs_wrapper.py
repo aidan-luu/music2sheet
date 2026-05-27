@@ -45,7 +45,7 @@ def test_wrapper_respects_explicit_device(tmp_path: Path) -> None:
 
 def test_audio_hash_stable(tmp_path: Path) -> None:
     """Hashing the same byte content twice yields identical digests."""
-    payload = b"sheet-sage-2 deterministic payload \x00\x01\x02"
+    payload = b"music2sheet deterministic payload \x00\x01\x02"
     a = tmp_path / "a.bin"
     b = tmp_path / "b.bin"
     a.write_bytes(payload)
@@ -63,8 +63,8 @@ def test_audio_hash_changes_with_content(tmp_path: Path) -> None:
     """A single byte difference must produce a different hash."""
     a = tmp_path / "a.bin"
     b = tmp_path / "b.bin"
-    a.write_bytes(b"sheet-sage-2-A")
-    b.write_bytes(b"sheet-sage-2-B")
+    a.write_bytes(b"music2sheet-A")
+    b.write_bytes(b"music2sheet-B")
 
     assert audio_hash(a) != audio_hash(b)
 

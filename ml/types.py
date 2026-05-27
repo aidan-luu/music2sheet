@@ -1,4 +1,4 @@
-"""Shared dataclasses for the Sheet Sage 2 ML pipeline.
+"""Shared dataclasses for the music2sheet ML pipeline.
 
 These types form the contract between Agent C (ML), Agent B (API), and Agent A
 (frontend). Once a model head lands in a later PR, it must emit values matching
