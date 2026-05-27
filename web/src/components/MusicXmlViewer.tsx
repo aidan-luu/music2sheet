@@ -1,18 +1,37 @@
 import { useEffect, useRef, useState } from 'react';
 import { OpenSheetMusicDisplay } from 'opensheetmusicdisplay';
+import { fetchMusicXml } from '../api/client';
 
-interface Props {
-  musicxml: string;
-}
+type Props =
+  | { musicxml: string; musicxmlUrl?: never }
+  | { musicxmlUrl: string; musicxml?: never };
 
-export function MusicXmlViewer({ musicxml }: Props): JSX.Element {
+export function MusicXmlViewer(props: Props): JSX.Element {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const osmdRef = useRef<OpenSheetMusicDisplay | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [xml, setXml] = useState<string | null>(props.musicxml ?? null);
+
+  useEffect(() => {
+    if (props.musicxml !== undefined) {
+      setXml(props.musicxml);
+      return;
+    }
+    const controller = new AbortController();
+    setError(null);
+    setXml(null);
+    fetchMusicXml(props.musicxmlUrl, controller.signal)
+      .then((text) => setXml(text))
+      .catch((err: unknown) => {
+        if (controller.signal.aborted) return;
+        setError(err instanceof Error ? err.message : 'Failed to fetch MusicXML');
+      });
+    return () => controller.abort();
+  }, [props.musicxml, props.musicxmlUrl]);
 
   useEffect(() => {
     const container = containerRef.current;
-    if (!container) return;
+    if (!container || xml === null) return;
 
     let cancelled = false;
     setError(null);
@@ -28,7 +47,7 @@ export function MusicXmlViewer({ musicxml }: Props): JSX.Element {
     osmdRef.current = osmd;
 
     osmd
-      .load(musicxml)
+      .load(xml)
       .then(() => {
         if (cancelled) return;
         osmd.render();
@@ -41,7 +60,7 @@ export function MusicXmlViewer({ musicxml }: Props): JSX.Element {
     return () => {
       cancelled = true;
     };
-  }, [musicxml]);
+  }, [xml]);
 
   return (
     <div className="musicxml-viewer">
