@@ -1,0 +1,103 @@
+# --- Python ---
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+*.egg
+*.egg-info/
+.eggs/
+build/
+dist/
+develop-eggs/
+downloads/
+sdist/
+wheels/
+share/python-wheels/
+MANIFEST
+pip-log.txt
+pip-delete-this-directory.txt
+
+# Virtualenvs
+.venv/
+venv/
+env/
+ENV/
+.python-version
+
+# Tooling caches
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.tox/
+.nox/
+.coverage
+.coverage.*
+htmlcov/
+coverage.xml
+*.cover
+.hypothesis/
+
+# --- ML / experiment artifacts ---
+*.pt
+*.pth
+*.ckpt
+*.safetensors
+*.onnx
+*.npz
+*.npy
+wandb/
+mlruns/
+runs/
+outputs/
+checkpoints/
+.cache/
+hf_cache/
+torch_hub/
+audio_cache/
+datasets_cache/
+
+# --- Node / frontend ---
+node_modules/
+.next/
+.nuxt/
+.svelte-kit/
+.parcel-cache/
+.vite/
+dist/
+build/
+*.tsbuildinfo
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+.eslintcache
+
+# --- macOS ---
+.DS_Store
+.AppleDouble
+.LSOverride
+._*
+.Spotlight-V100
+.Trashes
+
+# --- IDE / editors ---
+.idea/
+.vscode/
+*.swp
+*.swo
+*.swn
+*.sublime-project
+*.sublime-workspace
+.history/
+
+# --- Local secrets / env ---
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+
+# --- Misc ---
+*.log
+*.tmp
+*.bak
