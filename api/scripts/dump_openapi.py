@@ -8,16 +8,8 @@ from __future__ import annotations
 
 import json
 import sys
-from pathlib import Path
 
-# Allow running as a plain script (`python api/scripts/dump_openapi.py`) even
-# when the `api` package isn't installed onto sys.path by pip — the project
-# build currently bypasses package selection (see pyproject.toml).
-_REPO_ROOT = Path(__file__).resolve().parents[2]
-if str(_REPO_ROOT) not in sys.path:
-    sys.path.insert(0, str(_REPO_ROOT))
-
-from api.main import app  # noqa: E402
+from api.main import app
 
 
 def main() -> int:

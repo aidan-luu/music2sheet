@@ -60,9 +60,7 @@ Issues = "https://github.com/aidan-luu/music2sheet/issues"
 allow-direct-references = true
 
 [tool.hatch.build.targets.wheel]
-# Source packages (ml/, api/) will be added by Agents C and B in later PRs.
-# Until then, build only the metadata so `pip install -e .` works in CI.
-bypass-selection = true
+packages = ["api", "ml"]
 
 [tool.ruff]
 line-length = 100
