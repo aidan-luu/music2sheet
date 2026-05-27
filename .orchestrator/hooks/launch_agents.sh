@@ -51,8 +51,19 @@ if ! command -v claude >/dev/null 2>&1; then
   echo "claude CLI not on PATH; aborting" >&2; exit 1
 fi
 
-# Tear down any existing session so we start clean
+# Pick a Python interpreter for the watchdog. Prefer the project's venv, fall
+# back to python3 on PATH.
+if [[ -x "$REPO_ROOT/.venv/bin/python" ]]; then
+  WATCHDOG_PY="$REPO_ROOT/.venv/bin/python"
+elif command -v python3 >/dev/null 2>&1; then
+  WATCHDOG_PY="$(command -v python3)"
+else
+  echo "no python3 found; aborting (the watchdog needs it)" >&2; exit 1
+fi
+
+# Tear down any existing session AND any stale watchdog so we start clean
 tmux kill-session -t "$SESSION" 2>/dev/null || true
+pkill -f "agent_watchdog.py --all" 2>/dev/null || true
 
 # Make sure each agent has a worktree to live in
 mkdir -p "$REPO_ROOT/.orchestrator/worktrees"
@@ -140,8 +151,19 @@ for entry in "${agents[@]}"; do
   tmux send-keys -t "$SESSION:agents.$pane" Enter
 done
 
+# Start the multi-agent watchdog in the background. nohup'd so it survives
+# the orchestrator shell exiting; logs land at .orchestrator/watchdog.log.
+WATCHDOG_LOG="$REPO_ROOT/.orchestrator/watchdog.log"
+nohup "$WATCHDOG_PY" "$REPO_ROOT/.orchestrator/hooks/agent_watchdog.py" --all \
+  > "$WATCHDOG_LOG" 2>&1 &
+WATCHDOG_PID=$!
+disown $WATCHDOG_PID 2>/dev/null || true
+
 echo "Session '$SESSION' is up with 4 agent panes."
 echo "Layout: A=top-left, B=top-right, C=bottom-left, D=bottom-right."
+echo "Watchdog: PID $WATCHDOG_PID (logs: $WATCHDOG_LOG)"
+echo "  Stop watchdog: pkill -f 'agent_watchdog.py --all'"
+echo "  Stop everything: tmux kill-session -t $SESSION && pkill -f 'agent_watchdog.py --all'"
 echo
 if [[ $ATTACH -eq 1 ]]; then
   echo "Attaching... (detach with Ctrl-b d)"
