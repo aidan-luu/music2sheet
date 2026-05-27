@@ -1,0 +1,136 @@
+# Dependency graph for the agent team.
+# Orchestrator reads this before dispatching any task. An agent attempting to
+# start a task whose prerequisites aren't `done` is blocked.
+#
+# Schema:
+#   agents:        per-agent path ownership (mirrors skills.md; this file wins on conflict)
+#   hard_rules:    cross-cutting invariants the orchestrator enforces
+#   tasks:         PR-level DAG. Each node carries owner + blockedBy + parallel-with.
+
+agents:
+  A:
+    name: Frontend
+    owns:
+      - web/
+  B:
+    name: Backend
+    owns:
+      - api/
+      - deploy/
+      - docker/
+  C:
+    name: ML
+    owns:
+      - ml/
+  D:
+    name: QA
+    owns:
+      - tests/
+      - evals/
+      - .github/workflows/
+      - pyproject.toml
+      - .pre-commit-config.yaml
+      - .gitignore
+      - LICENSE
+      - README.md
+  orchestrator:
+    owns:
+      - .orchestrator/
+      - skills.md
+
+hard_rules:
+  - id: schema-before-ui
+    description: Agent B must publish api/openapi.json for an endpoint before Agent A
+      may build the frontend that calls it.
+  - id: code-before-test
+    description: Agent D runs only on a feature branch tagged `ready-for-qa` by the
+      owning agent.
+  - id: models-before-api
+    description: Agent B may stub endpoints, but must not wire real inference until
+      Agent C ships the corresponding inference module with a stable Python API.
+  - id: no-shared-writes
+    description: Each agent owns disjoint paths. Cross-cutting writes go through a
+      ticket addressed to the owning agent.
+  - id: worktree-isolation
+    description: Each agent works in .orchestrator/worktrees/<agent>/. Merges to main
+      go through Agent D's QA pass.
+  - id: kill-criterion-gate
+    description: After PR-5, if melody F1 on SheetSage test < 80%, orchestrator
+      pauses the entire team and consults the user before PR-6.
+
+tasks:
+  PR-0:
+    title: Repo scaffold
+    primary_owner: D
+    secondary_owner: C
+    blocked_by: []
+    parallel_with: []
+  PR-1:
+    title: HT-Demucs v4 wrapper
+    primary_owner: C
+    blocked_by: [PR-0]
+    parallel_with: [PR-2, PR-3]
+  PR-2:
+    title: Beat Transformer / downbeat
+    primary_owner: C
+    blocked_by: [PR-0]
+    parallel_with: [PR-1, PR-3]
+  PR-3:
+    title: MERT-v1-330M feature wrapper
+    primary_owner: C
+    blocked_by: [PR-0]
+    parallel_with: [PR-1, PR-2]
+  PR-4:
+    title: Melody decoder port on MERT features
+    primary_owner: C
+    blocked_by: [PR-3]
+    parallel_with: [PR-6]
+  PR-5:
+    title: Melody scale-up (KILL CRITERION GATE)
+    primary_owner: C
+    blocked_by: [PR-4]
+    gate: kill-criterion
+  PR-6:
+    title: Frame-level large-vocab chord head
+    primary_owner: C
+    blocked_by: [PR-3]
+    parallel_with: [PR-4]
+  PR-7:
+    title: BACHI-style boundary-aware chord refinement
+    primary_owner: C
+    blocked_by: [PR-6]
+  PR-8:
+    title: Key head (joint with chord)
+    primary_owner: C
+    blocked_by: [PR-6]
+  PR-9:
+    title: Voicing model (synthetic pretrain -> POP909 fine-tune)
+    primary_owner: C
+    blocked_by: [PR-7]
+  PR-10:
+    title: Voicing-to-notation rule layer
+    primary_owner: C
+    blocked_by: [PR-9]
+  PR-11:
+    title: Quantization-to-beat-grid engine
+    primary_owner: C
+    blocked_by: [PR-5, PR-7, PR-10]
+  PR-12:
+    title: MusicXML + LilyPond + MIDI writer
+    primary_owner: C
+    blocked_by: [PR-11]
+  PR-13:
+    title: Eval harness + leaderboard
+    primary_owner: D
+    blocked_by: [PR-12]
+    parallel_with: [PR-14a]
+  PR-14a:
+    title: FastAPI service + job queue
+    primary_owner: B
+    blocked_by: [PR-12]
+    parallel_with: [PR-13]
+  PR-14b:
+    title: Frontend demo (HF Space)
+    primary_owner: A
+    blocked_by: [PR-14a]
+    notes: Blocks until api/openapi.json is committed by Agent B.
