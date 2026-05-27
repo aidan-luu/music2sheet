@@ -29,6 +29,7 @@ ml = [
     "torchaudio>=2.2",
     "transformers>=4.40",
     "librosa>=0.10",
+    "madmom @ git+https://github.com/CPJKU/madmom.git@main",
     "demucs>=4.0",
     "mir_eval>=0.7",
     "numpy>=1.26",
@@ -87,3 +88,6 @@ show_error_codes = true
 testpaths = ["tests"]
 asyncio_mode = "auto"
 addopts = "-ra"
+markers = [
+    "slow: long-running tests that download models or run real inference; deselect with -m 'not slow' or enable with RUN_SLOW=1",
+]

@@ -18,6 +18,14 @@ Inference is offered as a **hosted API only** (FastAPI + Redis/RQ on Modal or
 Replicate, with a thin HuggingFace Space demo UI). No local-install
 distribution is supported.
 
+## Installation
+
+```
+pip install -e ".[ml]"
+```
+
+Note: madmom is installed from git (not PyPI) for Python 3.11+ compatibility — see pyproject.toml ml extras.
+
 ## Team
 
 This repo is built by a 4-agent team. See [`skills.md`](skills.md) for the
