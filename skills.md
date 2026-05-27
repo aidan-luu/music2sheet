@@ -69,8 +69,8 @@ Common ground for all agents:
 - Frontend build pipeline → Agent A.
 
 ### Expected inputs
-- Agent C's `ml.inference.run(audio_path) -> TranscriptionResult` Python API
-  (stable signature defined in `ml/inference/__init__.py`).
+- Agent C's `ml.inference.transcribe(audio_path, *, options=None) -> TranscriptionResult` Python API
+  (stable signature exported from `ml/inference/__init__.py`).
 - Storage credentials / runtime config from env vars (documented in `deploy/env.example`).
 
 ### Expected outputs
