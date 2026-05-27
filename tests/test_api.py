@@ -285,3 +285,125 @@ async def test_legacy_json_endpoint_still_works(
     assert r.status_code == 201, r.text
     job_id = r.json()["job_id"]
     assert (isolated_blobs / job_id / "input.wav").read_bytes() == _WAV_BYTES
+
+
+# --------------------------------------------------------------------------
+# PR-B3: real yt-dlp download on the audio_url intake path.
+#
+# These tests must NEVER hit YouTube — we monkey-patch the import the worker
+# actually calls (`api.workers.download_audio`). Hitting the network would be
+# flaky in CI, slow in dev, and would change the meaning of "test failure"
+# from "regression" to "internet was bad today".
+# --------------------------------------------------------------------------
+
+from api import workers as api_workers  # noqa: E402
+from api.ytdlp import YtdlpError  # noqa: E402
+
+
+async def _poll_until_status(
+    client: httpx.AsyncClient, job_id: str, *, timeout_s: float = 5.0
+) -> dict:
+    """Poll GET /jobs/{job_id} until status is terminal (done/failed)."""
+    deadline = asyncio.get_event_loop().time() + timeout_s
+    while asyncio.get_event_loop().time() < deadline:
+        got = await client.get(f"/jobs/{job_id}")
+        assert got.status_code == 200
+        body = got.json()
+        if body["status"] in ("done", "failed"):
+            return body
+        await asyncio.sleep(0.02)
+    pytest.fail(f"job {job_id} did not reach terminal status within {timeout_s}s")
+
+
+async def test_yt_dlp_failure_marks_job_failed(
+    client: httpx.AsyncClient,
+    isolated_blobs: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    def _boom(url: str, dest_dir: Path) -> Path:
+        raise YtdlpError("private video")
+
+    monkeypatch.setattr(api_workers, "download_audio", _boom)
+
+    r = await client.post(
+        "/transcribe",
+        json={"audio_url": "https://youtube.com/watch?v=privateXYZ"},
+    )
+    assert r.status_code == 201, r.text
+    job_id = r.json()["job_id"]
+
+    body = await _poll_until_status(client, job_id)
+    assert body["status"] == "failed"
+    assert body["error"] is not None
+    assert "private video" in body["error"]
+    # No result was produced — the results endpoint should 404.
+    rr = await client.get(f"/jobs/{job_id}/results/musicxml")
+    assert rr.status_code == 404
+
+
+async def test_yt_dlp_success_persists_audio(
+    client: httpx.AsyncClient,
+    isolated_blobs: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    def _fake_download(url: str, dest_dir: Path) -> Path:
+        # Mirror the real wrapper's contract: write a 44.1kHz-ish tiny WAV
+        # to <dest_dir>/input.wav and return the path. Bytes match the same
+        # header used elsewhere in this file so the worker sees a real WAV.
+        dest_dir.mkdir(parents=True, exist_ok=True)
+        out = dest_dir / "input.wav"
+        out.write_bytes(_WAV_BYTES)
+        return out
+
+    monkeypatch.setattr(api_workers, "download_audio", _fake_download)
+
+    r = await client.post(
+        "/transcribe",
+        json={"audio_url": "https://youtube.com/watch?v=okayVID"},
+    )
+    assert r.status_code == 201, r.text
+    job_id = r.json()["job_id"]
+
+    body = await _poll_until_status(client, job_id)
+    assert body["status"] == "done", body
+    assert body["result_urls"]["musicxml"] == f"/jobs/{job_id}/results/musicxml"
+
+    # The fake download wrote input.wav into the job dir.
+    assert (isolated_blobs / job_id / "input.wav").read_bytes() == _WAV_BYTES
+    # URL marker should have been cleaned up post-download.
+    assert not (isolated_blobs / job_id / "input.url").exists()
+    # And the fixture MusicXML is served as the result.
+    rr = await client.get(f"/jobs/{job_id}/results/musicxml")
+    assert rr.status_code == 200
+    assert rr.text.lstrip().startswith("<?xml")
+    assert "<score-partwise" in rr.text
+
+
+async def test_yt_dlp_not_called_for_b64_path(
+    client: httpx.AsyncClient,
+    isolated_blobs: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """b64/multipart intake must NOT invoke yt-dlp — no URL marker is present,
+    so the download branch should be skipped entirely."""
+
+    calls: list[tuple[str, Path]] = []
+
+    def _spy(url: str, dest_dir: Path) -> Path:
+        calls.append((url, dest_dir))
+        raise AssertionError(
+            "download_audio must not be called for b64/multipart intake"
+        )
+
+    monkeypatch.setattr(api_workers, "download_audio", _spy)
+
+    r = await client.post(
+        "/transcribe",
+        json={"audio_file_b64": _WAV_HEADER_B64},
+    )
+    assert r.status_code == 201, r.text
+    job_id = r.json()["job_id"]
+
+    body = await _poll_until_status(client, job_id)
+    assert body["status"] == "done", body
+    assert calls == []

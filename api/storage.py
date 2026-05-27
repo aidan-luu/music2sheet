@@ -39,6 +39,14 @@ class JobBlobStore:
     def _job_dir(self, job_id: str) -> Path:
         return self.root / job_id
 
+    def get_job_dir(self, job_id: str) -> Path:
+        """Public accessor for the per-job directory.
+
+        Used by the worker to hand a concrete destination to non-store
+        helpers (e.g. the yt-dlp wrapper which writes a WAV directly).
+        """
+        return self._job_dir(job_id)
+
     def put_audio(self, job_id: str, audio_bytes: bytes, filename: str) -> Path:
         """Persist raw audio bytes for `job_id`. Returns the written path.
 
