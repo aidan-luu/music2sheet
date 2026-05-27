@@ -1,0 +1,86 @@
+:root {
+  font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  color-scheme: light dark;
+  line-height: 1.5;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+}
+
+.app {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.app__header {
+  padding: 1rem 2rem;
+  border-bottom: 1px solid rgba(127, 127, 127, 0.25);
+}
+
+.app__brand {
+  font-weight: 600;
+  font-size: 1.1rem;
+  text-decoration: none;
+  color: inherit;
+}
+
+.app__main {
+  max-width: 960px;
+  width: 100%;
+  margin: 0 auto;
+  padding: 2rem;
+}
+
+.upload-page__hint {
+  color: #666;
+}
+
+.upload-page__tabs {
+  display: flex;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+}
+
+.upload-page__tabs button[aria-selected='true'] {
+  background: #222;
+  color: white;
+}
+
+.upload-page__field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+}
+
+.upload-page__field input {
+  padding: 0.5rem;
+  font-size: 1rem;
+}
+
+.upload-page__error,
+.job-status__error,
+.musicxml-viewer__error {
+  color: #c0392b;
+  margin: 0.5rem 0;
+}
+
+.job-status__progress progress {
+  width: 100%;
+  height: 1rem;
+}
+
+.musicxml-viewer {
+  margin-top: 1rem;
+  background: white;
+  color: black;
+  padding: 1rem;
+  border-radius: 4px;
+  overflow-x: auto;
+}
