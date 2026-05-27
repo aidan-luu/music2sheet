@@ -9,6 +9,13 @@ Common ground for all agents:
   agent-teams toolset (`TeamCreate` / `TeamDelete`), which spins up a teammate
   instance with the role spec loaded from this file. Agents don't run as
   long-lived background processes.
+- **Worktree isolation (mandatory when ≥ 2 agents run concurrently).** Every
+  agent works in its own git worktree at `.orchestrator/worktrees/agent-<X>/`.
+  The Orchestrator pre-creates the worktree on the agent's feature branch
+  before dispatch; the agent's first action is `cd` into it. Without this,
+  two agents sharing the main repo will stomp each other's `HEAD` mid-task
+  (observed during PR-A0/PR-B0 — Agent B caught the swap and recovered, but
+  it's a real hazard).
 - Every task starts on a feature branch named `agent-<X>/<pr-id>-<slug>` and
   lands on `main` only after Agent D's QA pass.
 - An agent's owned paths (see each section below) are non-negotiable. Writes
