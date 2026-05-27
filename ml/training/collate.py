@@ -1,11 +1,17 @@
-"""Batch collation for the melody training pipeline (PR-4b).
+"""Batch collation for the framewise training pipelines (PR-4b, PR-6).
 
 The training-side ``Dataset`` yields variable-length ``(encoder_feats,
 target_tokens)`` pairs because input audio clips differ in length. The
 collate function below pads everything in a batch to the longest sequence,
-zero-filling encoder features and using :attr:`MelodyTokenizer.PAD` (==0)
-for the token targets so a cross-entropy loss can mask them out with
+zero-filling encoder features and using ``PAD`` token id ``0`` for the
+target stream so a cross-entropy loss can mask them out with
 ``ignore_index=0`` later.
+
+Both :class:`ml.models.melody_tokenizer.MelodyTokenizer` and
+:class:`ml.models.chord_tokenizer.ChordTokenizer` reserve id ``0`` for PAD,
+so the same collate function is shared between the melody and chord training
+pipelines and exported under both the legacy name :func:`melody_collate`
+and the new neutral alias :func:`framewise_collate`.
 """
 
 from __future__ import annotations
@@ -84,4 +90,10 @@ def melody_collate(batch: list[dict[str, torch.Tensor]]) -> dict[str, torch.Tens
     }
 
 
-__all__ = ["melody_collate"]
+# Neutral alias for non-melody framewise heads (PR-6 chord head, future
+# key head, etc.). Same function; the alias only exists so import sites
+# can pick the more honest name when the data is not a melody stream.
+framewise_collate = melody_collate
+
+
+__all__ = ["framewise_collate", "melody_collate"]
