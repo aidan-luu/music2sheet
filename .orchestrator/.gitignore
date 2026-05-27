@@ -1,0 +1,6 @@
+# Orchestrator runtime state — ephemeral; do not track.
+state/
+incidents/
+worktrees/
+# Tickets are tracked (historical record of cross-agent coordination).
+!tickets/

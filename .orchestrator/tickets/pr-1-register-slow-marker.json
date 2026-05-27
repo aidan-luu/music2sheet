@@ -1,0 +1,19 @@
+{
+  "id": "pr-1-register-slow-marker",
+  "from": "agent-C",
+  "to": "agent-D",
+  "pr": "PR-1",
+  "type": "config",
+  "title": "Register the 'slow' pytest marker in pyproject.toml",
+  "body": "tests/test_demucs_wrapper.py uses @pytest.mark.slow to gate the model-download smoke test (skipped unless RUN_SLOW=1). Pytest will emit a PytestUnknownMarkWarning until the marker is registered. Please add the following to [tool.pytest.ini_options] in pyproject.toml:\n\n  markers = [\n    \"slow: marks tests as slow (deselect with -m 'not slow'); enable explicitly with RUN_SLOW=1\",\n  ]\n\nNo Agent C code changes are required; this is a config-only ask.",
+  "files_touched_by_requester": [
+    "tests/test_demucs_wrapper.py"
+  ],
+  "files_requested_to_modify": [
+    "pyproject.toml"
+  ],
+  "status": "resolved",
+  "created_at": "2026-05-27T04:35:00Z",
+  "resolved_at": "2026-05-27T05:00:00Z",
+  "resolved_commit": "a1173c9f3d40e0238d128b761590f30dbb7765fd"
+}
