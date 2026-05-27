@@ -5,35 +5,34 @@ and exchanges with its peers. The Orchestrator consults this file before every
 dispatch. Agents read their own section before claiming a task.
 
 Common ground for all agents:
-- Each agent runs as a live `claude` CLI process in one tmux pane of session
-  `claude-dev` (launched via `.orchestrator/hooks/launch_agents.sh`).
-- Each agent works in its own git worktree at
-  `.orchestrator/worktrees/agent-<X>/` (created by the launch script).
+- The Orchestrator dispatches each agent on demand via Claude Code's experimental
+  agent-teams toolset (`TeamCreate` / `TeamDelete`), which spins up a teammate
+  instance with the role spec loaded from this file. Agents don't run as
+  long-lived background processes.
 - Every task starts on a feature branch named `agent-<X>/<pr-id>-<slug>` and
   lands on `main` only after Agent D's QA pass.
-- Heartbeat + status writes go to `.orchestrator/state/agent-<X>.json` every
-  ~minute (even when idle). Status machine: `running | done | failed`.
-  Three consecutive failures → watchdog halts the agent.
-- **Ticket workflow** (orchestrator → agent):
-  - Orchestrator drops a JSON ticket at
-    `.orchestrator/tickets/agent-<X>-<id>.json` with shape:
-    ```json
-    {
-      "id": "...",
-      "to": "agent-X",
-      "pr": "PR-N",
-      "title": "...",
-      "body": "...task description...",
-      "files_requested_to_modify": [...],
-      "status": "open",
-      "created_at": "<iso8601>"
-    }
-    ```
-  - Agent polls every 30s; on finding `status: "open"` for itself, renames the
-    file to `<id>.in-progress.json` and updates its state file.
-  - On completion: renames to `<id>.done.json` with `resolved_at` +
-    `resolved_commit` fields populated.
-  - Cross-agent requests use the same format with `to` set to the target agent.
+- An agent's owned paths (see each section below) are non-negotiable. Writes
+  outside those paths require a cross-agent request — see "Cross-agent
+  requests" below.
+- **Cross-agent requests** flow as JSON files under `.orchestrator/tickets/`
+  with the shape:
+  ```json
+  {
+    "id": "...",
+    "from": "agent-X",
+    "to": "agent-Y",
+    "pr": "PR-N",
+    "title": "...",
+    "body": "...request description...",
+    "files_requested_to_modify": [...],
+    "status": "open",
+    "created_at": "<iso8601>"
+  }
+  ```
+  These are read by the Orchestrator (who decides whether to dispatch the
+  target agent), not polled by agents directly. Resolved tickets are renamed
+  to `<id>.done.json` with `resolved_at` and `resolved_commit` fields for the
+  audit trail.
 
 ---
 
@@ -65,11 +64,13 @@ Common ground for all agents:
 - Stories / visual fixtures under `web/src/__stories__/` for QA review.
 
 ### Handoff protocol
-- On task start: `git checkout -b agent-a/<pr-id>-<slug>`, write `{status: running}` to state.
-- On task done: push branch, open PR, tag `ready-for-qa`, write `{status: done}`.
-- On failure: capture stderr/test output to `.orchestrator/incidents/<timestamp>.log`,
-  increment `failure_count`, write `{status: failed}`. Watchdog escalates at count ≥ 3.
-- Schema change needed? File a ticket addressed to Agent B; do NOT modify schemas locally.
+- On task start: create branch `agent-a/<pr-id>-<slug>`.
+- On task done: commit, tag `ready-for-qa-<pr-id>`, return a structured summary
+  (files touched, key decisions, anything surprising) to the Orchestrator.
+- On failure: surface the error in the returned summary so the Orchestrator
+  can decide to retry, re-scope, or escalate to the user.
+- Schema change needed? File a ticket addressed to Agent B under
+  `.orchestrator/tickets/`; do NOT modify schemas locally.
 
 ---
 
@@ -106,8 +107,8 @@ Common ground for all agents:
   - `POST /jobs/{job_id}/webhook` (optional callback registration)
 
 ### Handoff protocol
-- Same git/state/ticket flow as Agent A.
-- Publishing a schema change: regenerate `api/openapi.json`, commit, write a ticket
+- Same handoff protocol as Agent A (branch → commit → tag → structured summary).
+- Publishing a schema change: regenerate `api/openapi.json`, commit, file a ticket
   to Agent A summarizing the diff. Don't break Agent A's open branches silently.
 
 ---
@@ -150,11 +151,12 @@ Common ground for all agents:
 - Per-phase eval reports under `ml/training/runs/<run-id>/eval.json`.
 
 ### Handoff protocol
-- Same git/state/ticket flow as A/B.
-- Long-running training jobs: write progress to state every 5 min so the watchdog
-  doesn't false-positive a stall.
-- KILL CRITERION (PR-5): if F1 on SheetSage test < 80%, set state to `failed` with
-  a special `reason: "kill-criterion"` field; orchestrator pauses the whole team.
+- Same handoff protocol as A/B (branch → commit → tag → structured summary).
+- Long-running training jobs: report intermediate metrics (epoch loss, val F1)
+  in the returned summary so the Orchestrator can detect divergence early.
+- KILL CRITERION (PR-5): if F1 on SheetSage test < 80%, return a summary that
+  explicitly flags `kill_criterion_missed: true`; the Orchestrator will pause
+  the team and consult the user.
 
 ---
 
@@ -191,10 +193,11 @@ Common ground for all agents:
 - Per-PR QA report comment on each PR (pass/fail per check).
 
 ### Handoff protocol
-- Same git/state/ticket flow.
-- Test failures: write a ticket to the owning agent with reproduction steps; do NOT
+- Same handoff protocol as A/B/C (branch → commit → tag → structured summary).
+- Test failures: file a ticket to the owning agent with reproduction steps; do NOT
   edit non-test files to "fix" the issue yourself.
-- On red CI nightly: open an incident under `.orchestrator/incidents/` and ping orchestrator.
+- On red CI nightly: surface the failure in the returned summary so the
+  Orchestrator can dispatch the owning agent to fix it.
 
 ---
 

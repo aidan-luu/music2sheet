@@ -51,9 +51,10 @@ hard_rules:
   - id: no-shared-writes
     description: Each agent owns disjoint paths. Cross-cutting writes go through a
       ticket addressed to the owning agent.
-  - id: worktree-isolation
-    description: Each agent works in .orchestrator/worktrees/<agent>/. Merges to main
-      go through Agent D's QA pass.
+  - id: branch-isolation
+    description: Each agent works on its own feature branch agent-<X>/<pr-id>-<slug>.
+      Merges to main go through Agent D's QA pass and the Orchestrator's explicit
+      merge step.
   - id: kill-criterion-gate
     description: After PR-5, if melody F1 on SheetSage test < 80%, orchestrator
       pauses the entire team and consults the user before PR-6.
