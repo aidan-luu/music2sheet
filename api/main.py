@@ -2,7 +2,8 @@
 
 Endpoints:
 - GET /healthz
-- POST /transcribe
+- POST /transcribe                (JSON; deprecated — kept for back-compat)
+- POST /transcribe/upload         (multipart/form-data; preferred for files)
 - GET /jobs/{job_id}
 - GET /jobs/{job_id}/results/{kind}
 
@@ -23,7 +24,7 @@ from typing import Literal
 from urllib.parse import urlparse
 from uuid import UUID, uuid4
 
-from fastapi import FastAPI, HTTPException, status
+from fastapi import FastAPI, File, Form, HTTPException, UploadFile, status
 from fastapi.responses import FileResponse
 
 from api.schemas.jobs import JobStatus, JobStatusResponse
@@ -79,40 +80,45 @@ def _validate_audio_url(url: str) -> None:
         )
 
 
-@app.get("/healthz")
-def healthz() -> dict[str, str]:
-    return {"status": "ok"}
+def _persist_audio_bytes(job_id: str, audio_bytes: bytes, *, source_label: str) -> None:
+    """Validate audio magic bytes and persist to the blob store.
+
+    `source_label` is woven into the 400 detail so the client gets a useful
+    hint about which intake path failed.
+    """
+    ext = _detect_audio_extension(audio_bytes)
+    if ext is None:
+        raise HTTPException(
+            status_code=400,
+            detail=f"{source_label} magic bytes did not match MP3 or WAV",
+        )
+    _BLOB_STORE.put_audio(job_id, audio_bytes, f"input.{ext}")
 
 
-@app.post(
-    "/transcribe",
-    response_model=TranscribeResponse,
-    status_code=status.HTTP_201_CREATED,
-)
-async def create_transcription_job(
-    request: TranscribeRequest,
+def _intake_and_schedule(
+    *,
+    audio_bytes: bytes | None,
+    audio_url: str | None,
+    audio_source_label: str,
 ) -> TranscribeResponse:
+    """Shared body for both intake endpoints.
+
+    Exactly one of `audio_bytes` / `audio_url` must be non-None — the caller
+    enforces the XOR with the validation rules appropriate to its content type
+    (Pydantic model_validator for JSON, manual 422 for multipart).
+
+    Persists the audio, records the job, schedules the background worker, and
+    returns the response shape Agent A is coding against.
+    """
     job_id = uuid4()
     job_id_str = str(job_id)
 
-    if request.audio_file_b64 is not None:
-        try:
-            audio_bytes = base64.b64decode(request.audio_file_b64, validate=True)
-        except (binascii.Error, ValueError) as exc:
-            raise HTTPException(
-                status_code=400, detail="audio_file_b64 is not valid base64"
-            ) from exc
-        ext = _detect_audio_extension(audio_bytes)
-        if ext is None:
-            raise HTTPException(
-                status_code=400,
-                detail="audio_file_b64 magic bytes did not match MP3 or WAV",
-            )
-        _BLOB_STORE.put_audio(job_id_str, audio_bytes, f"input.{ext}")
+    if audio_bytes is not None:
+        _persist_audio_bytes(job_id_str, audio_bytes, source_label=audio_source_label)
     else:
-        assert request.audio_url is not None  # enforced by schema validator
-        _validate_audio_url(request.audio_url)
-        _BLOB_STORE.put_audio_url(job_id_str, request.audio_url)
+        assert audio_url is not None  # enforced by callers
+        _validate_audio_url(audio_url)
+        _BLOB_STORE.put_audio_url(job_id_str, audio_url)
 
     created_at = datetime.now(timezone.utc)
     _JOBS[job_id_str] = JobStatusResponse(
@@ -130,6 +136,87 @@ async def create_transcription_job(
         job_id=job_id,
         status=JobStatus.PENDING,
         created_at=created_at,
+    )
+
+
+@app.get("/healthz")
+def healthz() -> dict[str, str]:
+    return {"status": "ok"}
+
+
+@app.post(
+    "/transcribe",
+    response_model=TranscribeResponse,
+    status_code=status.HTTP_201_CREATED,
+    deprecated=True,
+    description=(
+        "Deprecated: prefer POST /transcribe/upload (multipart/form-data) for "
+        "file uploads. This JSON endpoint requires base64-encoding the audio "
+        "payload, which is bandwidth-wasteful and forces the browser through a "
+        "chunked btoa workaround for files >~5MB. Kept indefinitely for "
+        "back-compat with existing clients."
+    ),
+)
+async def create_transcription_job(
+    request: TranscribeRequest,
+) -> TranscribeResponse:
+    audio_bytes: bytes | None = None
+    if request.audio_file_b64 is not None:
+        try:
+            audio_bytes = base64.b64decode(request.audio_file_b64, validate=True)
+        except (binascii.Error, ValueError) as exc:
+            raise HTTPException(
+                status_code=400, detail="audio_file_b64 is not valid base64"
+            ) from exc
+
+    return _intake_and_schedule(
+        audio_bytes=audio_bytes,
+        audio_url=request.audio_url,
+        audio_source_label="audio_file_b64",
+    )
+
+
+@app.post(
+    "/transcribe/upload",
+    response_model=TranscribeResponse,
+    status_code=status.HTTP_201_CREATED,
+    description=(
+        "Create a transcription job from a multipart/form-data upload. "
+        "Provide exactly one of `audio_file` (binary MP3/WAV) or `audio_url` "
+        "(remote fetch). Returns the same TranscribeResponse shape as the "
+        "JSON endpoint."
+    ),
+)
+async def create_transcription_job_upload(
+    audio_file: UploadFile | None = File(
+        default=None,
+        description="Binary audio payload (MP3 or WAV). Mutually exclusive with audio_url.",
+    ),
+    audio_url: str | None = Form(
+        default=None,
+        description="HTTP(S) URL the backend will fetch the audio from.",
+    ),
+) -> TranscribeResponse:
+    # FastAPI/Starlette gives us an UploadFile sentinel even when the client
+    # didn't include the field; treat empty filename as "not provided".
+    has_file = audio_file is not None and bool(audio_file.filename)
+    has_url = audio_url is not None and audio_url != ""
+
+    if has_file == has_url:
+        raise HTTPException(
+            status_code=422,
+            detail="Exactly one of 'audio_file' or 'audio_url' must be provided.",
+        )
+
+    audio_bytes: bytes | None = None
+    if has_file:
+        assert audio_file is not None
+        audio_bytes = await audio_file.read()
+
+    return _intake_and_schedule(
+        audio_bytes=audio_bytes,
+        audio_url=audio_url if has_url else None,
+        audio_source_label="audio_file",
     )
 
 

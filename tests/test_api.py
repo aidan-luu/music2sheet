@@ -195,3 +195,93 @@ async def test_result_unknown_kind(
     job_id = create.json()["job_id"]
     r = await client.get(f"/jobs/{job_id}/results/garbage")
     assert r.status_code == 422
+
+
+# --------------------------------------------------------------------------
+# PR-B2: multipart upload endpoint (POST /transcribe/upload)
+# --------------------------------------------------------------------------
+
+# Minimal MP3 frame: ID3v2 header (10 bytes, no payload) followed by a single
+# MPEG-1 Layer 3 frame sync (0xFF 0xFB ...). The magic-bytes sniffer keys off
+# the leading "ID3" tag, so the payload length doesn't matter for validation.
+_MP3_BYTES = (
+    b"ID3\x04\x00\x00\x00\x00\x00\x00"  # ID3v2.4 header, zero-size tag
+    b"\xff\xfb\x90\x00" + b"\x00" * 16  # one frame header + padding
+)
+_WAV_BYTES = base64.b64decode(_WAV_HEADER_B64)
+
+
+async def test_upload_multipart_wav_ok(
+    client: httpx.AsyncClient, isolated_blobs: Path
+) -> None:
+    r = await client.post(
+        "/transcribe/upload",
+        files={"audio_file": ("song.wav", _WAV_BYTES, "audio/wav")},
+    )
+    assert r.status_code == 201, r.text
+    body = r.json()
+    UUID(body["job_id"])
+    assert body["status"] == "pending"
+    job_dir = isolated_blobs / body["job_id"]
+    assert job_dir.is_dir()
+    written = (job_dir / "input.wav").read_bytes()
+    assert written == _WAV_BYTES
+
+
+async def test_upload_multipart_mp3_ok(
+    client: httpx.AsyncClient, isolated_blobs: Path
+) -> None:
+    r = await client.post(
+        "/transcribe/upload",
+        files={"audio_file": ("song.mp3", _MP3_BYTES, "audio/mpeg")},
+    )
+    assert r.status_code == 201, r.text
+    job_id = r.json()["job_id"]
+    written = (isolated_blobs / job_id / "input.mp3").read_bytes()
+    assert written == _MP3_BYTES
+
+
+async def test_upload_multipart_bad_audio_400(
+    client: httpx.AsyncClient, isolated_blobs: Path
+) -> None:
+    r = await client.post(
+        "/transcribe/upload",
+        files={"audio_file": ("noise.bin", b"not-real-audio-bytes-just-noise", "audio/wav")},
+    )
+    assert r.status_code == 400, r.text
+
+
+async def test_upload_multipart_missing_input_422(
+    client: httpx.AsyncClient, isolated_blobs: Path
+) -> None:
+    # No audio_file, no audio_url — multipart with empty body.
+    r = await client.post(
+        "/transcribe/upload",
+        files={},
+        data={},
+    )
+    assert r.status_code == 422, r.text
+
+
+async def test_upload_multipart_both_inputs_422(
+    client: httpx.AsyncClient, isolated_blobs: Path
+) -> None:
+    r = await client.post(
+        "/transcribe/upload",
+        files={"audio_file": ("song.wav", _WAV_BYTES, "audio/wav")},
+        data={"audio_url": "https://example.com/other.mp3"},
+    )
+    assert r.status_code == 422, r.text
+
+
+async def test_legacy_json_endpoint_still_works(
+    client: httpx.AsyncClient, isolated_blobs: Path
+) -> None:
+    """Back-compat: PR-B2 deprecates the JSON endpoint but must not remove it."""
+    r = await client.post(
+        "/transcribe",
+        json={"audio_file_b64": _WAV_HEADER_B64},
+    )
+    assert r.status_code == 201, r.text
+    job_id = r.json()["job_id"]
+    assert (isolated_blobs / job_id / "input.wav").read_bytes() == _WAV_BYTES
