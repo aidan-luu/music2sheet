@@ -1,6 +1,37 @@
 {
   "components": {
     "schemas": {
+      "Body_create_transcription_job_upload_transcribe_upload_post": {
+        "properties": {
+          "audio_file": {
+            "anyOf": [
+              {
+                "contentMediaType": "application/octet-stream",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Binary audio payload (MP3 or WAV). Mutually exclusive with audio_url.",
+            "title": "Audio File"
+          },
+          "audio_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "HTTP(S) URL the backend will fetch the audio from.",
+            "title": "Audio Url"
+          }
+        },
+        "title": "Body_create_transcription_job_upload_transcribe_upload_post",
+        "type": "object"
+      },
       "HTTPValidationError": {
         "properties": {
           "detail": {
@@ -320,6 +351,8 @@
     },
     "/transcribe": {
       "post": {
+        "deprecated": true,
+        "description": "Deprecated: prefer POST /transcribe/upload (multipart/form-data) for file uploads. This JSON endpoint requires base64-encoding the audio payload, which is bandwidth-wasteful and forces the browser through a chunked btoa workaround for files >~5MB. Kept indefinitely for back-compat with existing clients.",
         "operationId": "create_transcription_job_transcribe_post",
         "requestBody": {
           "content": {
@@ -354,6 +387,44 @@
           }
         },
         "summary": "Create Transcription Job"
+      }
+    },
+    "/transcribe/upload": {
+      "post": {
+        "description": "Create a transcription job from a multipart/form-data upload. Provide exactly one of `audio_file` (binary MP3/WAV) or `audio_url` (remote fetch). Returns the same TranscribeResponse shape as the JSON endpoint.",
+        "operationId": "create_transcription_job_upload_transcribe_upload_post",
+        "requestBody": {
+          "content": {
+            "multipart/form-data": {
+              "schema": {
+                "$ref": "#/components/schemas/Body_create_transcription_job_upload_transcribe_upload_post"
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TranscribeResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Create Transcription Job Upload"
       }
     }
   }
