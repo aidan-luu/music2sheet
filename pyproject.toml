@@ -56,6 +56,9 @@ dev = [
 Homepage = "https://github.com/sheet-sage-2/sheet-sage-2"
 Issues = "https://github.com/sheet-sage-2/sheet-sage-2/issues"
 
+[tool.hatch.metadata]
+allow-direct-references = true
+
 [tool.hatch.build.targets.wheel]
 # Source packages (ml/, api/) will be added by Agents C and B in later PRs.
 # Until then, build only the metadata so `pip install -e .` works in CI.
