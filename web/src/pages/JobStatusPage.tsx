@@ -3,6 +3,7 @@ import { Link, useParams } from 'react-router-dom';
 import { ApiError, getJob } from '../api/client';
 import { isTerminal, type JobStatus } from '../api/types';
 import { MusicXmlViewer } from '../components/MusicXmlViewer';
+import { DownloadButtons } from '../components/DownloadButtons';
 
 const POLL_MS = 2000;
 
@@ -73,15 +74,20 @@ export function JobStatusPage(): JSX.Element {
         </div>
       )}
 
-      {status?.status === 'done' && musicxmlUrl && (
+      {status?.status === 'done' && status.result_urls && (
         <div className="job-status__result">
           <h2>Result</h2>
-          <MusicXmlViewer musicxmlUrl={musicxmlUrl} />
+          <DownloadButtons jobId={jobId} urls={status.result_urls} />
+          {musicxmlUrl ? (
+            <MusicXmlViewer musicxmlUrl={musicxmlUrl} />
+          ) : (
+            <p>No MusicXML preview available.</p>
+          )}
         </div>
       )}
 
-      {status?.status === 'done' && !musicxmlUrl && (
-        <p>Job finished but no MusicXML result URL was returned.</p>
+      {status?.status === 'done' && !status.result_urls && (
+        <p>Job finished but no result URLs were returned.</p>
       )}
     </section>
   );

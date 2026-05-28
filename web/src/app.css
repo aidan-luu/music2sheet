@@ -84,3 +84,196 @@ body {
   border-radius: 4px;
   overflow-x: auto;
 }
+
+/* ---- UploadPage layout (PR-A3) ---- */
+
+.upload-page__layout {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 1.5rem;
+}
+
+@media (min-width: 768px) {
+  .upload-page__layout {
+    grid-template-columns: 2fr 1fr;
+  }
+}
+
+.upload-page__label {
+  font-weight: 500;
+}
+
+/* ---- FileDropZone ---- */
+
+.drop-zone__wrap {
+  position: relative;
+}
+
+.drop-zone {
+  border: 2px dashed rgba(127, 127, 127, 0.55);
+  border-radius: 8px;
+  padding: 2rem 1rem;
+  text-align: center;
+  cursor: pointer;
+  transition: border-color 120ms ease, background-color 120ms ease;
+  outline: none;
+}
+
+.drop-zone:hover {
+  border-color: rgba(127, 127, 127, 0.85);
+}
+
+.drop-zone:focus-visible {
+  outline: 3px solid #3b82f6;
+  outline-offset: 2px;
+}
+
+.drop-zone--active {
+  border-color: #3b82f6;
+  background: rgba(59, 130, 246, 0.08);
+}
+
+.drop-zone--has-file {
+  border-style: solid;
+  border-color: rgba(34, 197, 94, 0.55);
+}
+
+.drop-zone__prompt,
+.drop-zone__file {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.drop-zone__file-name {
+  word-break: break-all;
+}
+
+.drop-zone__file-meta {
+  color: #666;
+  font-size: 0.9rem;
+}
+
+.drop-zone__input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  border: 0;
+}
+
+.drop-zone__sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+}
+
+/* ---- RecentJobsList ---- */
+
+.recent-jobs {
+  border: 1px solid rgba(127, 127, 127, 0.25);
+  border-radius: 8px;
+  padding: 1rem;
+}
+
+.recent-jobs__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin-bottom: 0.5rem;
+}
+
+.recent-jobs__header h2 {
+  font-size: 1rem;
+  margin: 0;
+}
+
+.recent-jobs__clear {
+  font-size: 0.85rem;
+  background: transparent;
+  border: 1px solid rgba(127, 127, 127, 0.4);
+  border-radius: 4px;
+  padding: 0.2rem 0.5rem;
+  cursor: pointer;
+}
+
+.recent-jobs__empty {
+  color: #888;
+  font-size: 0.9rem;
+  margin: 0;
+}
+
+.recent-jobs__list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.recent-jobs__link {
+  display: flex;
+  flex-direction: column;
+  text-decoration: none;
+  color: inherit;
+  padding: 0.4rem 0.5rem;
+  border-radius: 4px;
+}
+
+.recent-jobs__link:hover,
+.recent-jobs__link:focus-visible {
+  background: rgba(127, 127, 127, 0.12);
+}
+
+.recent-jobs__label {
+  font-size: 0.92rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.recent-jobs__time {
+  font-size: 0.78rem;
+  color: #888;
+}
+
+/* ---- DownloadButtons ---- */
+
+.downloads {
+  margin: 1rem 0;
+}
+
+.downloads__buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.downloads__button {
+  padding: 0.5rem 0.85rem;
+  border-radius: 4px;
+  border: 1px solid rgba(127, 127, 127, 0.4);
+  background: transparent;
+  cursor: pointer;
+  font-size: 0.95rem;
+}
+
+.downloads__button:disabled {
+  opacity: 0.6;
+  cursor: progress;
+}
+
+.downloads__toast {
+  margin-top: 0.5rem;
+  font-size: 0.9rem;
+  color: #666;
+}
