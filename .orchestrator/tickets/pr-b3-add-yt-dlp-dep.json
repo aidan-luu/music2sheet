@@ -1,0 +1,15 @@
+{
+  "id": "pr-b3-add-yt-dlp-dep",
+  "from": "agent-B",
+  "to": "agent-D",
+  "pr": "PR-B3",
+  "title": "Add yt-dlp to [project.optional-dependencies].api",
+  "body": "PR-B3 implements real YouTube ingest via the audio_url path. The wrapper at api/ytdlp.py does `import yt_dlp` and uses `yt_dlp.YoutubeDL` with the FFmpegExtractAudio postprocessor to produce a WAV. yt-dlp is not in our current pin, so fresh CI runs and the deploy image will fail at import time without this change. I'll install it into the local .venv so the agent-B test suite stays green; the canonical fix needs to land in pyproject.toml.\n\nProposed one-line edit to pyproject.toml, [project.optional-dependencies].api block:\n\n  api = [\n      \"fastapi>=0.110\",\n      \"uvicorn>=0.29\",\n      \"redis>=5.0\",\n      \"rq>=1.16\",\n      \"pydantic>=2.6\",\n      \"httpx>=0.27\",\n      \"python-multipart>=0.0.9\",\n      \"yt-dlp>=2024.5.0\",          # <-- add\n  ]\n\nNote: yt-dlp also depends on ffmpeg being available at runtime for the WAV postprocessor. If the deploy image's base doesn't already include ffmpeg, deploy/Dockerfile needs an `apt-get install -y ffmpeg` line as well — flagging here so it can be handled in the same PR.",
+  "files_requested_to_modify": ["pyproject.toml", "deploy/Dockerfile"],
+  "status": "resolved",
+  "created_at": "2026-05-27T00:00:00Z",
+  "resolved_at": "2026-05-28T00:18:19Z",
+  "resolved_by": "agent-D",
+  "resolved_commit": "c427fc0241551456435c7735845ab64f64c6ca7c",
+  "resolution_notes": "Added yt-dlp>=2024.5.0 to [project.optional-dependencies].api in pyproject.toml. Added apt-get install -y --no-install-recommends ffmpeg to deploy/Dockerfile runtime stage (cross-territory edit authorized by orchestrator per agent-B's explicit request in this ticket)."
+}

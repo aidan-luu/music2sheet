@@ -7,6 +7,9 @@ RUN pip install --no-cache-dir --upgrade pip \
 
 FROM python:3.11-slim AS runtime
 WORKDIR /app
+RUN apt-get update \
+ && apt-get install -y --no-install-recommends ffmpeg \
+ && rm -rf /var/lib/apt/lists/*
 COPY --from=builder /wheels /wheels
 COPY api ./api
 COPY pyproject.toml README.md LICENSE ./

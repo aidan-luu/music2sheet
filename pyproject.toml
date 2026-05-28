@@ -43,6 +43,7 @@ api = [
     "pydantic>=2.6",
     "httpx>=0.27",
     "python-multipart>=0.0.9",
+    "yt-dlp>=2024.5.0",
 ]
 dev = [
     "ruff>=0.4",
